@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FallingWords</string>
+    <string name="button_start">Start</string>
+    <string name="description_tap_on_correct_falling_word">Tap on the correct falling word.</string>
+</resources>
