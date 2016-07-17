@@ -11,7 +11,7 @@ import java.lang.annotation.RetentionPolicy;
 
 public class FallingWord {
 
-    @IntDef({STATUS_PENDING, STATUS_FALLING, STATUS_PAUSED, STATUS_COMPLETED})
+    @IntDef({STATUS_PENDING, STATUS_FALLING, STATUS_PAUSED, STATUS_COMPLETED, STATUS_REMOVED})
     @Retention(RetentionPolicy.SOURCE)
     public @interface Status {}
 
@@ -19,6 +19,7 @@ public class FallingWord {
     public static final int STATUS_FALLING = 1;
     public static final int STATUS_PAUSED = 2;
     public static final int STATUS_COMPLETED = 3;
+    public static final int STATUS_REMOVED = 4;
 
     public ValueAnimator animator;
     public WordPair wordPair;

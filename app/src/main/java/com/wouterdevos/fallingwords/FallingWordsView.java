@@ -36,17 +36,20 @@ public class FallingWordsView extends View {
     private static final int STATUS_PENDING_GAME = 4;
 
     private static final int MAX_FALLING_WORDS = 4;
-    private static final int COUNTER_SIZE = 60;
+    private static final int COUNTER_SIZE = 80;
     private static final int TEST_WORD_SIZE = 60;
-    private static final int TEST_WORD_Start = 30;
+    private static final int TEST_WORD_START_Y = 30;
     private static final int FALLING_WORD_SIZE = 50;
     private static final int FALLING_WORD_PADDING = 10;
     private static final int FALLING_WORD_START_Y = 100;
     private static final int MAX_SPAWN_POINTS = 2;
+    private static final int BOTTOM_PANEL_HEIGHT = 150;
 
     private static final long FALLING_WORD_DURATION = 8000;
     private static final long FALLING_WORD_START_DELAY = 1000;
+    private static final long BOTTOM_PANEL_DURATION = 500;
 
+    private Paint bottomPanelPaint;
     private Paint counterPaint;
     private Paint testWordPaint;
     private Paint fallingWordPaint;
@@ -56,6 +59,9 @@ public class FallingWordsView extends View {
 
     private int round = 0;
     private int score = 0;
+    private int selectedFallingWordIndex = -1;
+
+    private int bottomPanelColor = Color.LTGRAY;
 
     private Random random = new Random();
 
@@ -63,17 +69,22 @@ public class FallingWordsView extends View {
     private List<WordPair> wordPairs = new ArrayList<>();
     private List<FallingWord> fallingWords = new ArrayList<>();
 
+    private ValueAnimator colorAnimator;
+
     private int status = STATUS_PENDING_GAME;
 
     public FallingWordsView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
+        // Initialise bottom panel paint.
+        bottomPanelPaint = new Paint();
+
         // Initialise the counter paint.
         counterPaint = new Paint();
         counterPaint.setAntiAlias(true);
-        counterPaint.setColor(Color.BLACK);
+        counterPaint.setColor(Color.WHITE);
         counterPaint.setTextAlign(Paint.Align.CENTER);
-        counterPaint.setTypeface(Typeface.DEFAULT);
+        counterPaint.setTypeface(Typeface.DEFAULT_BOLD);
         counterPaint.setTextSize(COUNTER_SIZE);
 
         // Initialise the test word paint.
@@ -99,7 +110,7 @@ public class FallingWordsView extends View {
 
         testWordPosition = new Point();
         testWordPosition.x = getMeasuredWidth() / 2;
-        testWordPosition.y = 0;
+        testWordPosition.y = TEST_WORD_START_Y;
 
         spawnPoints = new ArrayList<>();
 
@@ -114,6 +125,7 @@ public class FallingWordsView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        drawBottomPanel(canvas);
         drawCounter(canvas);
         drawTestWord(canvas);
         drawFallingWords(canvas);
@@ -133,16 +145,25 @@ public class FallingWordsView extends View {
         return true;
     }
 
+    private void drawBottomPanel(Canvas canvas) {
+        if (status == STATUS_PENDING_GAME) {
+            return;
+        }
+
+        bottomPanelPaint.setColor(bottomPanelColor);
+        canvas.drawRect(0, getMeasuredHeight() - BOTTOM_PANEL_HEIGHT, getMeasuredWidth(), getMeasuredHeight(), bottomPanelPaint);
+    }
+
     private void drawCounter(Canvas canvas) {
         if (status == STATUS_PENDING_GAME) {
             return;
         }
 
-        String scoreText = "score: " + score;
+        String scoreText = "" + score;
         Rect bounds = new Rect();
         counterPaint.getTextBounds(scoreText, 0, scoreText.length(), bounds);
-        int xPosition = getMeasuredWidth() - (bounds.width() / 2);
-        int yPosition = testWordPosition.y + bounds.height();
+        int xPosition = getMeasuredWidth() / 2;
+        int yPosition = getMeasuredHeight() - (BOTTOM_PANEL_HEIGHT / 2) + (bounds.height() / 2);
         canvas.drawText(scoreText, xPosition, yPosition, counterPaint);
     }
 
@@ -157,7 +178,8 @@ public class FallingWordsView extends View {
 
     private void drawFallingWords(Canvas canvas) {
         for (FallingWord fallingWord : fallingWords) {
-            if (fallingWord.status == FallingWord.STATUS_PENDING || fallingWord.status == FallingWord.STATUS_COMPLETED) {
+            if (fallingWord.status == FallingWord.STATUS_PENDING || fallingWord.status == FallingWord.STATUS_COMPLETED ||
+                    fallingWord.status == FallingWord.STATUS_REMOVED) {
                 continue;
             }
             String fallingWordText = fallingWord.wordPair.textSpanish;
@@ -166,7 +188,7 @@ public class FallingWordsView extends View {
     }
 
     private void checkFallingWordTouched(float x, float y) {
-        int selectedIndex = -1;
+        selectedFallingWordIndex = -1;
         for (int i = 0; i < fallingWords.size(); i++) {
             FallingWord fallingWord = fallingWords.get(i);
             int halfWidth = fallingWord.bounds.width() / 2;
@@ -181,18 +203,24 @@ public class FallingWordsView extends View {
             boolean withinYBounds = y > top && y < bottom;
 
             if (withinXBounds && withinYBounds) {
-                pauseFallingWordsAnimation();
+                selectedFallingWordIndex = i;
+                break;
             }
         }
 
-        if (selectedIndex < 0) {
+        if (selectedFallingWordIndex < 0) {
             return;
         }
 
-        FallingWord selectedFallingWord = fallingWords.get(selectedIndex);
+        FallingWord selectedFallingWord = fallingWords.get(selectedFallingWordIndex);
         String selectedWord = selectedFallingWord.wordPair.textEnglish;
         String correctWord = correctFallingWord.wordPair.textEnglish;
         boolean correct = selectedWord.equals(correctWord);
+        if (correct) {
+            startCorrectAnimation();
+        } else {
+            startIncorrectAnimation();
+        }
         status = STATUS_SELECTED_ANSWER;
     }
 
@@ -256,7 +284,7 @@ public class FallingWordsView extends View {
 
     private ValueAnimator startFallingWordAnimation(int fallingWordIndex) {
         final FallingWord fallingWord = fallingWords.get(fallingWordIndex);
-        ValueAnimator valueAnimator = ValueAnimator.ofInt(fallingWord.position.y, getMeasuredHeight());
+        ValueAnimator valueAnimator = ValueAnimator.ofInt(fallingWord.position.y, getMeasuredHeight() - BOTTOM_PANEL_HEIGHT);
         valueAnimator.setDuration(FALLING_WORD_DURATION);
         valueAnimator.setInterpolator(new LinearInterpolator());
         valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -300,5 +328,97 @@ public class FallingWordsView extends View {
             ValueAnimator animator = fallingWord.animator;
             animator.pause();
         }
+    }
+
+    private void cancelFallingWordsAnimation() {
+        for (FallingWord fallingWord : fallingWords) {
+            ValueAnimator animator = fallingWord.animator;
+            animator.cancel();
+        }
+    }
+
+    private void startCorrectAnimation() {
+        colorAnimator = ValueAnimator.ofArgb(Color.GREEN, Color.LTGRAY);
+        colorAnimator.setDuration(BOTTOM_PANEL_DURATION);
+        colorAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                bottomPanelColor = (int) animation.getAnimatedValue();
+                FallingWordsView.this.invalidate();
+            }
+        });
+        colorAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                score++;
+                clearFallingWords();
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                startGame();
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+        colorAnimator.start();
+    }
+
+    private void clearFallingWords() {
+        cancelFallingWordsAnimation();
+        startRound();
+        for (FallingWord fallingWord : fallingWords) {
+            fallingWord.status = FallingWord.STATUS_COMPLETED;
+        }
+    }
+
+    private void startIncorrectAnimation() {
+        colorAnimator = ValueAnimator.ofArgb(Color.RED, Color.LTGRAY);
+        colorAnimator.setDuration(BOTTOM_PANEL_DURATION);
+        colorAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                bottomPanelColor = (int) animation.getAnimatedValue();
+                FallingWordsView.this.invalidate();
+            }
+        });
+        colorAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                score--;
+                score = score < 0 ? 0 : score;
+                clearSelectedFallingWord();
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+        colorAnimator.start();
+    }
+
+    private void clearSelectedFallingWord() {
+        FallingWord selectedFallingWord = fallingWords.get(selectedFallingWordIndex);
+        selectedFallingWord.animator.cancel();
+        selectedFallingWord.status = FallingWord.STATUS_REMOVED;
     }
 }
