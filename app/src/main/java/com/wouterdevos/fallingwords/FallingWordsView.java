@@ -59,6 +59,7 @@ public class FallingWordsView extends View {
 
     private int round = 0;
     private int score = 0;
+    private int remainingFallingWords = MAX_FALLING_WORDS;
     private int selectedFallingWordIndex = -1;
 
     private int bottomPanelColor = Color.LTGRAY;
@@ -235,8 +236,10 @@ public class FallingWordsView extends View {
 
     private void configureNextRound() {
         for (FallingWord fallingWord : fallingWords) {
+            fallingWord.animator.removeAllListeners();
             fallingWord.animator.cancel();
         }
+        remainingFallingWords = MAX_FALLING_WORDS;
         fallingWords.clear();
 
         int correctFallingWordPosition = random.nextInt(MAX_FALLING_WORDS - 1);
@@ -298,13 +301,15 @@ public class FallingWordsView extends View {
             @Override
             public void onAnimationStart(Animator animation) {
                 fallingWord.status = FallingWord.STATUS_FALLING;
-
             }
 
             @Override
             public void onAnimationEnd(Animator animation) {
                 fallingWord.status = FallingWord.STATUS_COMPLETED;
-
+                remainingFallingWords--;
+                if (remainingFallingWords == 0) {
+                    startGame();
+                }
             }
 
             @Override
@@ -333,6 +338,7 @@ public class FallingWordsView extends View {
     private void cancelFallingWordsAnimation() {
         for (FallingWord fallingWord : fallingWords) {
             ValueAnimator animator = fallingWord.animator;
+            animator.removeAllListeners();
             animator.cancel();
         }
     }
@@ -417,7 +423,9 @@ public class FallingWordsView extends View {
     }
 
     private void clearSelectedFallingWord() {
+        remainingFallingWords--;
         FallingWord selectedFallingWord = fallingWords.get(selectedFallingWordIndex);
+        selectedFallingWord.animator.removeAllListeners();
         selectedFallingWord.animator.cancel();
         selectedFallingWord.status = FallingWord.STATUS_REMOVED;
     }
